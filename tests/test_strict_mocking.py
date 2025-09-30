@@ -9,22 +9,17 @@ def mock_response(json_data, status=200, headers=None):
     m.text = "error"
     return m
 
-@patch("src.gh_api.requests.get")
+@patch("requests.get")  # patch global requests.get so no real HTTP happens
 def test_never_calls_network_directly(get):
-    # Arrange: responses for repos list then commits for two repos
     get.side_effect = [
         mock_response([{"name": "A"}, {"name": "B"}]),   # list repos
         mock_response([{"sha": "x"}]),                   # commits for A
         mock_response([{"sha": "y"}, {"sha": "z"}]),     # commits for B
     ]
 
-    # Act
     pairs = gh.repos_with_commit_counts("user123")
-
-    # Assert returned values
     assert pairs == [("A", 1), ("B", 2)]
 
-    # Assert exact URLs requested and number of calls
     expected = [
         call("https://api.github.com/users/user123/repos", timeout=15),
         call("https://api.github.com/repos/user123/A/commits", timeout=15),
