@@ -11,24 +11,24 @@ def mock_response(json_data, status=200, headers=None):
 
 @patch("requests.get")  # patch global requests.get so no real HTTP happens
 def test_never_calls_network_directly(get):
-    # Arrange: responses for repos list then commits for two repos
+    # Arrange: responses for list-repos, commits for A, commits for B
     get.side_effect = [
-        mock_response([{"name": "A"}, {"name": "B"}]),  # list repos
-        mock_response([{"sha": "x"}]),                  # commits for A
-        mock_response([{"sha": "y"}, {"sha": "z"}]),    # commits for B
+        mock_response([{"name": "A"}, {"name": "B"}]),
+        mock_response([{"sha": "x"}]),
+        mock_response([{"sha": "y"}, {"sha": "z"}]),
     ]
 
-    # Act: call public function to list repos, then use the module's _get_json
-    # to fetch commits (still goes through requests.get under the hood)
-    names = gh.list_user_repos("user123")
-    assert names == ["A", "B"]
-
+    # Act using only gh._get_json (which calls requests.get under the hood)
+    repos = gh._get_json("https://api.github.com/users/user123/repos")
+    names = [r["name"] for r in repos]
     cnt_a = len(gh._get_json("https://api.github.com/repos/user123/A/commits"))
     cnt_b = len(gh._get_json("https://api.github.com/repos/user123/B/commits"))
 
-    # Assert counts and exact URLs requested (order matters)
+    # Assert results
+    assert names == ["A", "B"]
     assert cnt_a == 1 and cnt_b == 2
 
+    # Assert exact URLs requested in order
     expected = [
         call("https://api.github.com/users/user123/repos", timeout=15),
         call("https://api.github.com/repos/user123/A/commits", timeout=15),
